@@ -3,10 +3,10 @@
 # hibot CLI installer.
 #
 # Usage:
-#   tmp="$(mktemp -d)"
+#   tmp="$(mktemp -d)" &&
 #   curl -fL --retry 8 --retry-delay 2 --retry-max-time 300 \
 #     -o "$tmp/hibot-install.sh" \
-#     https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh
+#     https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh &&
 #   sh "$tmp/hibot-install.sh"
 #
 # Environment overrides:

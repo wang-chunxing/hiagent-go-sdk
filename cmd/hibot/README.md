@@ -13,10 +13,10 @@ upgrade path for existing CLI users.
 ### 1. Installer with retries (Linux & macOS)
 
 ```bash
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d)" &&
 curl -fL --retry 8 --retry-delay 2 --retry-max-time 300 \
   -o "$tmp/hibot-install.sh" \
-  https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh
+  https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh &&
 bash "$tmp/hibot-install.sh"
 ```
 
@@ -27,8 +27,8 @@ If `raw.githubusercontent.com` is still rate-limited, fetch the repository first
 and run the same installer locally:
 
 ```bash
-tmp="$(mktemp -d)"
-git clone --depth=1 https://github.com/volcengine/hiagent-go-sdk.git "$tmp/hiagent-go-sdk"
+tmp="$(mktemp -d)" &&
+git clone --depth=1 https://github.com/volcengine/hiagent-go-sdk.git "$tmp/hiagent-go-sdk" &&
 bash "$tmp/hiagent-go-sdk/scripts/install.sh"
 ```
 
