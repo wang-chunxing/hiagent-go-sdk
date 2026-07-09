@@ -7,21 +7,29 @@ Models and Uploads — plus sync and streaming `chat` commands.
 
 ## Install
 
-Pick the method that fits your environment.
+Pick the method that fits your environment. The installer is the recommended
+upgrade path for existing CLI users.
 
-### 1. `go install` (Go >= 1.22)
+### 1. Installer with retries (Linux & macOS)
 
 ```bash
-go install github.com/volcengine/hiagent-go-sdk/cmd/hibot@latest
+tmp="$(mktemp -d)"
+curl -fL --retry 8 --retry-delay 2 --retry-max-time 300 \
+  -o "$tmp/hibot-install.sh" \
+  https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh
+bash "$tmp/hibot-install.sh"
 ```
 
-This avoids GitHub release-asset downloads and is the recommended path when
-GitHub responds with `429 Too Many Requests`.
+This avoids `curl | bash`, retries transient GitHub failures such as `429 Too
+Many Requests`, and keeps the downloaded script available for inspection.
 
-### 2. One-line installer (Linux & macOS)
+If `raw.githubusercontent.com` is still rate-limited, fetch the repository first
+and run the same installer locally:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh | bash
+tmp="$(mktemp -d)"
+git clone --depth=1 https://github.com/volcengine/hiagent-go-sdk.git "$tmp/hiagent-go-sdk"
+bash "$tmp/hiagent-go-sdk/scripts/install.sh"
 ```
 
 Pin a specific version with `HIBOT_VERSION=cmd/hibot/v0.1.0`. Override the
@@ -30,14 +38,14 @@ install prefix with `HIBOT_PREFIX=$HOME/.local` (no `sudo` required) or
 instead of the GitHub Releases API and falls back to building from source when
 release assets cannot be downloaded.
 
-### 3. Homebrew (macOS / Linux)
+### 2. Homebrew (macOS / Linux)
 
 ```bash
 brew install volcengine/tap/hibot
 brew upgrade hibot
 ```
 
-### 4. Pre-built binaries
+### 3. Pre-built binaries
 
 Download the matching archive from the
 [GitHub Releases page](https://github.com/volcengine/hiagent-go-sdk/releases),

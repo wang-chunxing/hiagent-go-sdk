@@ -3,7 +3,11 @@
 # hibot CLI installer.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh | sh
+#   tmp="$(mktemp -d)"
+#   curl -fL --retry 8 --retry-delay 2 --retry-max-time 300 \
+#     -o "$tmp/hibot-install.sh" \
+#     https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh
+#   sh "$tmp/hibot-install.sh"
 #
 # Environment overrides:
 #   HIBOT_VERSION   Version to install: 1.0.0, v1.0.0, or cmd/hibot/v1.0.0
@@ -29,7 +33,7 @@ err() {
 }
 
 info() {
-  echo "[hibot-install] $*"
+  echo "[hibot-install] $*" >&2
 }
 
 need_cmd() {
@@ -53,13 +57,13 @@ download() {
   url="$2"
   shift 2
 
-  auth_args=()
   if [ -n "${GITHUB_TOKEN:-}" ]; then
-    auth_args=(-H "Authorization: Bearer $GITHUB_TOKEN")
+    # shellcheck disable=SC2046
+    curl -fSL $(curl_retry_flags) -H "Authorization: Bearer $GITHUB_TOKEN" "$@" -o "$out" "$url"
+  else
+    # shellcheck disable=SC2046
+    curl -fSL $(curl_retry_flags) "$@" -o "$out" "$url"
   fi
-
-  # shellcheck disable=SC2046
-  curl -fSL $(curl_retry_flags) "${auth_args[@]}" "$@" -o "$out" "$url"
 }
 
 resolve_latest_tag() {
