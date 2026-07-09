@@ -12,16 +12,14 @@ import (
 )
 
 const (
-	defaultRegion         = version.DefaultRegion
-	defaultServerService  = version.ServerService
-	defaultGatewayService = version.GatewayService
-	defaultModelService   = version.AIGWService
-	defaultUpService      = version.UPService
-	defaultV1Version      = version.V1
-	defaultModelVersion   = version.Model
-	defaultServerVersion  = version.Server
-	defaultChatVersion    = version.Chat
-	defaultUpVersion      = version.UP
+	defaultRegion        = version.DefaultRegion
+	defaultServerService = version.ServerService
+	defaultModelService  = version.AIGWService
+	defaultUpService     = version.UPService
+	defaultV1Version     = version.V1
+	defaultModelVersion  = version.Model
+	defaultServerVersion = version.Server
+	defaultUpVersion     = version.UP
 )
 
 // Config configures the Hibot SDK client.
@@ -34,10 +32,9 @@ type Config struct {
 
 	HTTPClient *http.Client
 
-	ServerService  string
-	GatewayService string
-	ModelService   string
-	UpService      string
+	ServerService string
+	ModelService  string
+	UpService     string
 }
 
 // NewClient creates a Hibot SDK client.
@@ -48,7 +45,6 @@ func NewClient(cfg Config) (*Client, error) {
 	cfg.WorkspaceID = cleanString(cfg.WorkspaceID)
 	cfg.Region = cleanString(cfg.Region)
 	cfg.ServerService = cleanString(cfg.ServerService)
-	cfg.GatewayService = cleanString(cfg.GatewayService)
 	cfg.ModelService = cleanString(cfg.ModelService)
 	cfg.UpService = cleanString(cfg.UpService)
 
@@ -70,9 +66,6 @@ func NewClient(cfg Config) (*Client, error) {
 	if cfg.ServerService == "" {
 		cfg.ServerService = defaultServerService
 	}
-	if cfg.GatewayService == "" {
-		cfg.GatewayService = defaultGatewayService
-	}
 	if cfg.ModelService == "" {
 		cfg.ModelService = defaultModelService
 	}
@@ -93,10 +86,9 @@ func NewClient(cfg Config) (*Client, error) {
 	})
 	c := &Client{}
 	c.V1 = v1.NewClient(requester, v1.Services{
-		Server:  cfg.ServerService,
-		Gateway: cfg.GatewayService,
-		Model:   cfg.ModelService,
-		UP:      cfg.UpService,
+		Server: cfg.ServerService,
+		Model:  cfg.ModelService,
+		UP:     cfg.UpService,
 	})
 	return c, nil
 }

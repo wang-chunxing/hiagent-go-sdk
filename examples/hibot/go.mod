@@ -1,6 +1,6 @@
 module github.com/volcengine/hiagent-go-sdk/examples/hibot
 
-go 1.25.0
+go 1.22.0
 
 require github.com/volcengine/hiagent-go-sdk/hibot v0.0.0
 

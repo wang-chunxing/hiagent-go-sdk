@@ -1,6 +1,6 @@
 module github.com/volcengine/hiagent-go-sdk
 
-go 1.25.0
+go 1.22.0
 
 require (
 	github.com/bytedance/sonic v1.15.0

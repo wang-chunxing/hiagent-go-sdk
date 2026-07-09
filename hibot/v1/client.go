@@ -4,10 +4,9 @@ import "github.com/volcengine/hiagent-go-sdk/hibot/internal/request"
 
 // Services contains TOP service names used by V1 resources.
 type Services struct {
-	Server  string
-	Gateway string
-	Model   string
-	UP      string
+	Server string
+	Model  string
+	UP     string
 }
 
 // Client is the V1 resource client.

@@ -10,7 +10,7 @@ const (
 	V1ManagedAgentSkillToolParamsTypeSkill = "skill"
 	V1ManagedAgentMCPToolParamsTypeMCP     = "mcp"
 
-	// SSE 事件名严格对齐 hibot-gateway (internal/components/gateway/ssehub.go)。
+	// SSE 事件名严格对齐 hibot-server ChatService 下发的 WebChat 事件。
 	V1SessionChatEventDelta             = "delta"
 	V1SessionChatEventCompleted         = "completed"
 	V1SessionChatEventFailed            = "failed"

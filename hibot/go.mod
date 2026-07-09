@@ -1,6 +1,6 @@
 module github.com/volcengine/hiagent-go-sdk/hibot
 
-go 1.25.0
+go 1.22.0
 
 require github.com/volcengine/volc-sdk-golang v1.0.217
 

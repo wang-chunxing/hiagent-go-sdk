@@ -12,6 +12,7 @@
 #   HIBOT_REPO      GitHub repo (default: volcengine/hiagent-go-sdk)
 #   HIBOT_REF       Git ref for source fallback when no release exists (default: main)
 #   HIBOT_SOURCE_FALLBACK  Set to 0 to disable source fallback (default: 1)
+#   GITHUB_TOKEN    Optional token used for GitHub downloads when provided
 #
 set -euo pipefail
 
@@ -39,6 +40,46 @@ urlencode_tag() {
   printf '%s' "$1" | sed 's#/#%2F#g'
 }
 
+curl_retry_flags() {
+  if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
+    printf '%s\n' "--retry" "5" "--retry-delay" "2" "--retry-max-time" "180" "--retry-all-errors"
+  else
+    printf '%s\n' "--retry" "5" "--retry-delay" "2" "--retry-max-time" "180"
+  fi
+}
+
+download() {
+  out="$1"
+  url="$2"
+  shift 2
+
+  auth_args=()
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    auth_args=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  fi
+
+  # shellcheck disable=SC2046
+  curl -fSL $(curl_retry_flags) "${auth_args[@]}" "$@" -o "$out" "$url"
+}
+
+resolve_latest_tag() {
+  need_cmd git
+  info "resolving latest cmd/hibot tag from git refs for github.com/$REPO ..."
+  tags="$(
+    git ls-remote --tags --refs "https://github.com/$REPO.git" 'refs/tags/cmd/hibot/v*' 2>/dev/null \
+      | sed -E 's#^.*refs/tags/(cmd/hibot/v.*)$#\1#' \
+      || true
+  )"
+  if [ -z "$tags" ]; then
+    return 1
+  fi
+  if sort -V </dev/null >/dev/null 2>&1; then
+    printf '%s\n' "$tags" | sort -V | tail -n 1
+  else
+    printf '%s\n' "$tags" | sort | tail -n 1
+  fi
+}
+
 install_binary() {
   src="$1"
 
@@ -64,21 +105,22 @@ install_binary() {
 }
 
 install_from_source() {
+  src_ref="${1:-$REF}"
   need_cmd git
   need_cmd go
 
-  info "falling back to source build from github.com/$REPO@$REF"
-  git clone --depth=1 --branch "$REF" "https://github.com/$REPO.git" "$TMP/src"
+  info "falling back to source build from github.com/$REPO@$src_ref"
+  git clone --depth=1 --branch "$src_ref" "https://github.com/$REPO.git" "$TMP/src"
   (cd "$TMP/src/cmd/hibot" && GOBIN="$TMP/bin" go install .)
   install_binary "$TMP/bin/hibot"
 }
 
 need_cmd curl
 need_cmd grep
-need_cmd head
 need_cmd install
 need_cmd mkdir
 need_cmd sed
+need_cmd sort
 need_cmd tar
 need_cmd uname
 
@@ -99,23 +141,16 @@ case "$ARCH_RAW" in
 esac
 
 if [ -z "$VERSION" ]; then
-  info "resolving latest cmd/hibot release tag from github.com/$REPO ..."
-  VERSION="$(
-    curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=100" 2>/dev/null \
-      | grep -E '"tag_name":[[:space:]]*"cmd/hibot/v[^"]+"' \
-      | head -n 1 \
-      | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/' \
-      || true
-  )"
+  VERSION="$(resolve_latest_tag || true)"
   if [ -z "$VERSION" ]; then
     info "no cmd/hibot release found for github.com/$REPO"
     if [ "$SOURCE_FALLBACK" != "0" ]; then
       TMP="$(mktemp -d -t hibot-install.XXXXXX)"
       trap 'rm -rf "$TMP"' EXIT
-      install_from_source
+      install_from_source "$REF"
       exit 0
     fi
-    err "could not determine latest cmd/hibot release; publish cmd/hibot/v* first or set HIBOT_SOURCE_FALLBACK=1"
+    err "could not determine latest cmd/hibot release; publish cmd/hibot/v*, set HIBOT_VERSION, or set HIBOT_SOURCE_FALLBACK=1"
   fi
 fi
 
@@ -148,9 +183,16 @@ TMP="$(mktemp -d -t hibot-install.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
 info "downloading $URL"
-curl -fSL --retry 3 -o "$TMP/$ARCHIVE" "$URL" || err "download failed"
+if ! download "$TMP/$ARCHIVE" "$URL"; then
+  info "release download failed"
+  if [ "$SOURCE_FALLBACK" != "0" ]; then
+    install_from_source "$TAG"
+    exit 0
+  fi
+  err "download failed"
+fi
 
-if curl -fsSL -o "$TMP/checksums.txt" "$SUMS_URL"; then
+if download "$TMP/checksums.txt" "$SUMS_URL" -s; then
   info "verifying SHA-256 checksum"
   if command -v sha256sum >/dev/null 2>&1; then
     (cd "$TMP" && grep " $ARCHIVE\$" checksums.txt | sha256sum -c -) \
