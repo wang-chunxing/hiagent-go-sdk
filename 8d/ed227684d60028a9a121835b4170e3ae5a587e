@@ -1,0 +1,23 @@
+cmd/hibot/README.md
+  s_cdca9dc422d9f0::t_264e035f4d2e28 13,17-18,21-22,24-25,29-32,35-37
+scripts/install.sh
+  s_cdca9dc422d9f0::t_abade228308f53 7-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8ded227684d60028a9a121835b4170e3ae5a587e",
+  "prompts": {},
+  "sessions": {
+    "s_cdca9dc422d9f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f458b-914b-7b80-92b5-97fc7c6a91d5",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
