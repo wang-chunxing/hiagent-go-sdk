@@ -10,7 +10,19 @@ Models and Uploads — plus sync and streaming `chat` commands.
 Pick the method that fits your environment. The installer is the recommended
 upgrade path for existing CLI users.
 
-### 1. Installer with retries (Linux & macOS)
+### 1. Installer via git checkout (Linux & macOS)
+
+```bash
+tmp="$(mktemp -d)" &&
+git clone --depth=1 https://github.com/volcengine/hiagent-go-sdk.git "$tmp/hiagent-go-sdk" &&
+bash "$tmp/hiagent-go-sdk/scripts/install.sh"
+```
+
+This avoids `raw.githubusercontent.com`, which can return `429 Too Many
+Requests` in shared networks.
+
+If direct raw downloads are reliable in your environment, this shorter variant
+also works and retries transient GitHub failures:
 
 ```bash
 tmp="$(mktemp -d)" &&
@@ -20,17 +32,8 @@ curl -fL --retry 8 --retry-delay 2 --retry-max-time 300 \
 bash "$tmp/hibot-install.sh"
 ```
 
-This avoids `curl | bash`, retries transient GitHub failures such as `429 Too
-Many Requests`, and keeps the downloaded script available for inspection.
-
-If `raw.githubusercontent.com` is still rate-limited, fetch the repository first
-and run the same installer locally:
-
-```bash
-tmp="$(mktemp -d)" &&
-git clone --depth=1 https://github.com/volcengine/hiagent-go-sdk.git "$tmp/hiagent-go-sdk" &&
-bash "$tmp/hiagent-go-sdk/scripts/install.sh"
-```
+Both forms avoid `curl | bash` and keep the downloaded script available for
+inspection.
 
 Pin a specific version with `HIBOT_VERSION=cmd/hibot/v0.1.0`. Override the
 install prefix with `HIBOT_PREFIX=$HOME/.local` (no `sudo` required) or

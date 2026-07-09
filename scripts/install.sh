@@ -4,6 +4,11 @@
 #
 # Usage:
 #   tmp="$(mktemp -d)" &&
+#   git clone --depth=1 https://github.com/volcengine/hiagent-go-sdk.git "$tmp/hiagent-go-sdk" &&
+#   sh "$tmp/hiagent-go-sdk/scripts/install.sh"
+#
+# Raw GitHub fallback:
+#   tmp="$(mktemp -d)" &&
 #   curl -fL --retry 8 --retry-delay 2 --retry-max-time 300 \
 #     -o "$tmp/hibot-install.sh" \
 #     https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh &&
