@@ -1,0 +1,35 @@
+cmd/hibot/README.md
+  s_cdca9dc422d9f0::t_2bf644476d0a12 74
+cmd/hibot/internal/cmd/client.go
+  s_cdca9dc422d9f0::t_19d94dbcc29d86 44-51
+cmd/hibot/internal/cmd/config.go
+  s_cdca9dc422d9f0::t_d5ab84fd577978 121,134,151
+cmd/hibot/internal/cmd/root.go
+  s_cdca9dc422d9f0::t_e8cf5b291681d5 36-46,51-58,63-70,73-80
+hibot/README.md
+  s_cdca9dc422d9f0::t_86ad626addaeaa 24,65,323
+hibot/config.go
+  s_cdca9dc422d9f0::t_16263fca7f47fd 15-22,35-37,89-91
+hibot/internal/version/version.go
+  s_cdca9dc422d9f0::t_ec8a0f2695a938 6
+hibot/v1/client.go
+  s_cdca9dc422d9f0::t_09af9cb858d62a 7-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5c0c5faa616c8d81e26bff9eec9581c5f08e720a",
+  "prompts": {},
+  "sessions": {
+    "s_cdca9dc422d9f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f458b-914b-7b80-92b5-97fc7c6a91d5",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
