@@ -1,0 +1,29 @@
+cmd/hibot/README.md
+  s_cdca9dc422d9f0::t_e774c3dbfef7be 12,15-26,29-32,40-41
+cmd/hibot/go.mod
+  s_cdca9dc422d9f0::t_9f9945855a7fac 3
+examples/hibot/go.mod
+  s_cdca9dc422d9f0::t_81358c2f19a981 3
+go.mod
+  s_cdca9dc422d9f0::t_d56f74ad235caa 3
+hibot/go.mod
+  s_cdca9dc422d9f0::t_b613919577cba9 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "72ba0b6af736f0600144f2fabf0980779244852f",
+  "prompts": {},
+  "sessions": {
+    "s_cdca9dc422d9f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f458b-914b-7b80-92b5-97fc7c6a91d5",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
