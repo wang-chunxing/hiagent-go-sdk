@@ -1,0 +1,37 @@
+cmd/hibot/README.md
+  s_cdca9dc422d9f0::t_fc1f2ef8c4a5a5 6
+cmd/hibot/internal/cmd/e2e_test.go
+  s_cdca9dc422d9f0::t_91edf9aa085bed 139-148,288,292-293,303-305
+examples/hibot/e2e/e2e_test.go
+  s_cdca9dc422d9f0::t_60861ef6bd9ca1 274-275,283,301-303,525
+examples/hibot/internal/mocktop/server.go
+  s_cdca9dc422d9f0::t_503b610c4efac6 78-87
+hibot/README.md
+  s_cdca9dc422d9f0::t_9c81fa5ecc3165 170
+hibot/client_test.go
+  s_cdca9dc422d9f0::t_4782daf400871a 323-326,338-339
+hibot/internal/request/request.go
+  s_cdca9dc422d9f0::t_5893797869a67f 62-80
+hibot/sessions_chat_files_test.go
+  s_cdca9dc422d9f0::t_491b996ec228cf 30,42-43,48-50,89,94,114-126
+hibot/v1/stream.go
+  s_cdca9dc422d9f0::t_dbe660687ea86b 34-36,38-47,50-55,68,101-120,144-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "eb0ed230cd127247c12600c45ff7e9157c309445",
+  "prompts": {},
+  "sessions": {
+    "s_cdca9dc422d9f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f458b-914b-7b80-92b5-97fc7c6a91d5",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
