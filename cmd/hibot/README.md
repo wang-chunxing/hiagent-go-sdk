@@ -13,8 +13,6 @@ Pick the method that fits your environment.
 
 ```bash
 go install github.com/volcengine/hiagent-go-sdk/cmd/hibot@latest
-# or pin a tag:
-go install github.com/volcengine/hiagent-go-sdk/cmd/hibot@cmd/hibot/v0.1.0
 ```
 
 This avoids GitHub release-asset downloads and is the recommended path when
@@ -26,8 +24,8 @@ GitHub responds with `429 Too Many Requests`.
 curl -fsSL https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh | bash
 ```
 
-Pin a specific version with `HIBOT_VERSION=cmd/hibot/v0.1.0`. Override the install
-prefix with `HIBOT_PREFIX=$HOME/.local` (no `sudo` required) or
+Pin a specific version with `HIBOT_VERSION=cmd/hibot/v0.1.0`. Override the
+install prefix with `HIBOT_PREFIX=$HOME/.local` (no `sudo` required) or
 `HIBOT_BIN_DIR=/path/to/bin`. The installer resolves versions through git refs
 instead of the GitHub Releases API and falls back to building from source when
 release assets cannot be downloaded.
@@ -55,8 +53,7 @@ hibot version
 
 ## Build from source (development only)
 
-The repository uses a `go.work` file so the CLI can be developed against the
-local Go SDK source. From the repo root:
+From the repo root:
 
 ```bash
 git clone https://github.com/volcengine/hiagent-go-sdk.git
@@ -64,10 +61,6 @@ cd hiagent-go-sdk/cmd/hibot
 go build -o bin/hibot ./
 ./bin/hibot --help
 ```
-
-> The `replace github.com/volcengine/hiagent-go-sdk/hibot => ../../hibot` directive in
-> `cmd/hibot/go.mod` is for local development only. Remove it before publishing
-> a tagged CLI module.
 
 ## Configure
 
