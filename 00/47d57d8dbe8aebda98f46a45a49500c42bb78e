@@ -1,0 +1,79 @@
+cmd/hibot/internal/cmd/client.go
+  s_cdca9dc422d9f0::t_19d94dbcc29d86 44-51
+hibot/client_test.go
+  s_cdca9dc422d9f0::t_906a054e38ddbe 242-243,245-246,302-322,327-337,340-345
+  s_cdca9dc422d9f0::t_4782daf400871a 323-326,338-339
+cmd/hibot/internal/cmd/config.go
+  s_cdca9dc422d9f0::t_d5ab84fd577978 121,134,151
+hibot/sessions_chat_files_test.go
+  s_cdca9dc422d9f0::t_491b996ec228cf 30,42-43,48-50,89,94,114-126
+  s_cdca9dc422d9f0::t_85955e36ec68f4 21-26
+hibot/internal/request/request.go
+  s_cdca9dc422d9f0::t_5893797869a67f 62-80
+  s_cdca9dc422d9f0::t_02d820541cd2b9 119
+hibot/internal/version/version.go
+  s_cdca9dc422d9f0::t_ec8a0f2695a938 6
+hibot/README.md
+  s_cdca9dc422d9f0::t_86ad626addaeaa 24,65,323
+  s_cdca9dc422d9f0::t_3e785c5d44c7cc 21
+  s_cdca9dc422d9f0::t_9c81fa5ecc3165 170
+cmd/hibot/internal/cmd/chat.go
+  s_cdca9dc422d9f0::t_b3bc944d74a768 8,10,26,30,34-37,53-56,59,71,79,86,94-96,106-108,114-147
+  s_cdca9dc422d9f0::t_7bee5092de3a92 25,46,78
+  s_cdca9dc422d9f0::t_05d1235b10e093 13
+cmd/hibot/internal/cmd/e2e_test.go
+  s_cdca9dc422d9f0::t_91edf9aa085bed 128,141-150,290,294-295,305-306
+  s_cdca9dc422d9f0::t_7f062f15ad2d8d 126-127
+  s_cdca9dc422d9f0::t_46a358234be56f 302-303
+  s_cdca9dc422d9f0::t_bf7ef29d0b49b5 43-46,51,65-70,87,90,122-124,320
+  s_cdca9dc422d9f0::t_7ea336282d95ae 129-140,207-210,291-293,296-301,304
+  s_cdca9dc422d9f0::t_8428bce4335a69 15,34-35,279-280,284
+examples/hibot/internal/mocktop/server.go
+  s_cdca9dc422d9f0::t_193e49333d6335 16-19,24,39-44,58,106,110
+  s_cdca9dc422d9f0::t_503b610c4efac6 78-87
+hibot/v1/client.go
+  s_cdca9dc422d9f0::t_09af9cb858d62a 7-9
+hibot/v1/types.go
+  s_cdca9dc422d9f0::t_7e661a3a6b1794 13
+cmd/hibot/internal/cmd/root.go
+  s_cdca9dc422d9f0::t_e8cf5b291681d5 36-46,51-58,63-70,73-80
+hibot/config.go
+  s_cdca9dc422d9f0::t_16263fca7f47fd 15-22,35-37,89-91
+hibot/v1/stream.go
+  s_cdca9dc422d9f0::t_da10c2ed92a2a5 17,22,297-303,305
+  s_cdca9dc422d9f0::t_dbe660687ea86b 34-36,38-47,50-55,67-71,77-78,101-149
+examples/hibot/e2e/e2e_test.go
+  s_cdca9dc422d9f0::t_60861ef6bd9ca1 274-275,283,289-291,301-303,525
+  s_cdca9dc422d9f0::t_2ba033346f08f0 23-24,66
+  s_cdca9dc422d9f0::t_a289c9b8296739 35,349-352,357,375,416-442,450-452,454,469,472-486,491,501-508,510,518-520
+cmd/hibot/README.md
+  s_cdca9dc422d9f0::t_2bf644476d0a12 79
+  s_cdca9dc422d9f0::t_9258c83d4d15fc 118,138
+  s_cdca9dc422d9f0::t_0b505f246c569e 137
+  s_cdca9dc422d9f0::t_fc1f2ef8c4a5a5 6
+  s_cdca9dc422d9f0::t_687a8bba3d1980 12,15-26,31-33,35,42
+cmd/hibot/go.mod
+  s_cdca9dc422d9f0::t_5008bc38560cf1 6
+cmd/hibot/internal/cmd/chat_test.go
+  s_cdca9dc422d9f0::t_4ac6a293cb7ce0 105-120
+scripts/install.sh
+  s_cdca9dc422d9f0::t_cde30a036c7388 15,43-82,108,112-113,123,144,150,153,186-193,195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0047d57d8dbe8aebda98f46a45a49500c42bb78e",
+  "prompts": {},
+  "sessions": {
+    "s_cdca9dc422d9f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f458b-914b-7b80-92b5-97fc7c6a91d5",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
