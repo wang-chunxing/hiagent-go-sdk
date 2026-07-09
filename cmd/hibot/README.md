@@ -3,43 +3,48 @@
 Command-line interface for the Hibot Managed Agent platform. `hibot` is a thin
 wrapper around the official [Go SDK](../../hibot) and exposes the same TOP API
 surface — Agents, Sessions, Skills, MCPs, Resources, Prompts, Environments,
-Models and Uploads — plus a streaming `chat` command.
+Models and Uploads — plus sync and streaming `chat` commands.
 
 ## Install
 
 Pick the method that fits your environment.
 
-### 1. One-line installer (Linux & macOS)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/volcengine/hibot-sdk/main/scripts/install.sh | bash
-```
-
-Pin a specific version with `HIBOT_VERSION=cmd/hibot/v0.1.0`. Override the install
-prefix with `HIBOT_PREFIX=$HOME/.local` (no `sudo` required) or
-`HIBOT_BIN_DIR=/path/to/bin`.
-
-### 2. Homebrew (macOS / Linux)
-
-```bash
-brew install volcengine/tap/hibot
-brew upgrade hibot
-```
-
-### 3. Pre-built binaries
-
-Download the matching archive from the
-[GitHub Releases page](https://github.com/volcengine/hiagent-go-sdk/releases),
-extract it, and place the `hibot` binary somewhere on your `PATH`. Each
-release ships with `checksums.txt` (SHA-256) for verification.
-
-### 4. `go install` (Go ≥ 1.22)
+### 1. `go install` (Go >= 1.22)
 
 ```bash
 go install github.com/volcengine/hiagent-go-sdk/cmd/hibot@latest
 # or pin a tag:
 go install github.com/volcengine/hiagent-go-sdk/cmd/hibot@cmd/hibot/v0.1.0
 ```
+
+This avoids GitHub release-asset downloads and is the recommended path when
+GitHub responds with `429 Too Many Requests`.
+
+### 2. One-line installer (Linux & macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/volcengine/hiagent-go-sdk/main/scripts/install.sh | bash
+```
+
+Pin a specific version with `HIBOT_VERSION=cmd/hibot/v0.1.0`. Override the install
+prefix with `HIBOT_PREFIX=$HOME/.local` (no `sudo` required) or
+`HIBOT_BIN_DIR=/path/to/bin`. The installer resolves versions through git refs
+instead of the GitHub Releases API and falls back to building from source when
+release assets cannot be downloaded.
+
+### 3. Homebrew (macOS / Linux)
+
+```bash
+brew install volcengine/tap/hibot
+brew upgrade hibot
+```
+
+### 4. Pre-built binaries
+
+Download the matching archive from the
+[GitHub Releases page](https://github.com/volcengine/hiagent-go-sdk/releases),
+extract it, and place the `hibot` binary somewhere on your `PATH`. Each
+release ships with `checksums.txt` (SHA-256) for verification.
 
 ### Verify
 
@@ -71,7 +76,7 @@ Configuration precedence (highest wins):
 1. CLI flags (`--endpoint`, `--ak`, `--sk`, `--workspace-id`, ...)
 2. Environment variables (`HIBOT_ENDPOINT`, `HIBOT_AK`, `HIBOT_SK`,
    `HIBOT_WORKSPACE_ID`, `HIBOT_REGION`, `HIBOT_SERVER_SERVICE`,
-   `HIBOT_GATEWAY_SERVICE`, `HIBOT_MODEL_SERVICE`, `HIBOT_UP_SERVICE`)
+   `HIBOT_MODEL_SERVICE`, `HIBOT_UP_SERVICE`)
 3. Config file at `$HOME/.hibot/config.yaml` (override path with
    `--config-file`).
 
@@ -110,7 +115,7 @@ hibot config init|view|set
 hibot agents create|list|get|update|delete
 hibot sessions create|list|get|delete|archive
 hibot sessions messages list|get|inject
-hibot chat <session-id> [--input ... | stdin] [--stream]
+hibot chat <session-id> [--agent-id agent-id] [--input ... | stdin] [--file path] [--stream]
 hibot models list|get|create|delete
 hibot models providers list|list-models
 hibot skills list|get|delete|upload|versions
@@ -129,7 +134,8 @@ Many flags accept `@/path/to/file` to read content from a file (e.g.
 
 ```
 echo "Tell me a joke" | hibot chat sess-123 --stream
-hibot chat sess-123 --stream --input "@prompts/run.md"
+hibot chat sess-123 --agent-id agent-123 --stream --input "@prompts/run.md"
+hibot chat sess-123 --agent-id agent-123 --file ./parking.png --input "Identify the parking spot"
 ```
 
 Streaming behaviour:

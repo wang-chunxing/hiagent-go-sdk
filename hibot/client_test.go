@@ -239,11 +239,11 @@ func TestChatStreamingParsesSSE(t *testing.T) {
 		if got := r.URL.Query().Get("Action"); got != "Chat" {
 			t.Fatalf("Action = %q, want Chat", got)
 		}
-		if got := r.URL.Query().Get("Version"); got != defaultChatVersion {
-			t.Fatalf("Version = %q, want %s", got, defaultChatVersion)
+		if got := r.URL.Query().Get("Version"); got != defaultServerVersion {
+			t.Fatalf("Version = %q, want %s", got, defaultServerVersion)
 		}
-		if got := r.Header.Get("X-Top-Service"); got != defaultGatewayService {
-			t.Fatalf("X-Top-Service = %q, want %s", got, defaultGatewayService)
+		if got := r.Header.Get("X-Top-Service"); got != defaultServerService {
+			t.Fatalf("X-Top-Service = %q, want %s", got, defaultServerService)
 		}
 		if got := r.Header.Get("Accept"); got != "text/event-stream" {
 			t.Fatalf("Accept = %q, want text/event-stream", got)
@@ -296,6 +296,50 @@ func TestChatStreamingParsesSSE(t *testing.T) {
 	}
 	if final.ID != "msg-1" {
 		t.Fatalf("final.ID = %q, want msg-1", final.ID)
+	}
+}
+
+func TestChatResolvesAgentIDFromSession(t *testing.T) {
+	t.Parallel()
+
+	var actions []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		action := r.URL.Query().Get("Action")
+		actions = append(actions, action)
+		if got := r.Header.Get("X-Top-Service"); got != defaultServerService {
+			t.Fatalf("%s X-Top-Service = %q, want %s", action, got, defaultServerService)
+		}
+		switch action {
+		case "GetSession":
+			_, _ = fmt.Fprint(w, `{"ResponseMetadata":{"RequestId":"req-1"},"Result":{"ID":"session-1","AgentID":"agent-from-session"}}`)
+		case "Chat":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			if got := body["AgentID"]; got != "agent-from-session" {
+				t.Fatalf("Chat AgentID = %v, want agent-from-session", got)
+			}
+			if got := body["Stream"]; got != false {
+				t.Fatalf("Chat Stream = %v, want false", got)
+			}
+			_, _ = fmt.Fprint(w, `{"ResponseMetadata":{"RequestId":"req-2"},"Result":{"Message":"ok"}}`)
+		default:
+			t.Fatalf("unexpected action %q", action)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	msg, err := client.V1.Sessions.Chat(context.Background(), "session-1", V1SessionChatParams{Input: "hello"})
+	if err != nil {
+		t.Fatalf("chat: %v", err)
+	}
+	if msg.Content != "ok" {
+		t.Fatalf("msg.Content = %q, want ok", msg.Content)
+	}
+	if got := strings.Join(actions, ","); got != "GetSession,Chat" {
+		t.Fatalf("actions = %s, want GetSession,Chat", got)
 	}
 }
 

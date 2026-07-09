@@ -33,55 +33,51 @@ func ExitCodeFor(err error) int {
 }
 
 const (
-	flagConfigFile     = "config-file"
-	flagEndpoint       = "endpoint"
-	flagAccessKey      = "ak"
-	flagSecretKey      = "sk"
-	flagWorkspaceID    = "workspace-id"
-	flagRegion         = "region"
-	flagServerService  = "server-service"
-	flagGatewayService = "gateway-service"
-	flagModelService   = "model-service"
-	flagUpService      = "up-service"
-	flagOutput         = "output"
-	flagVerbose        = "verbose"
+	flagConfigFile    = "config-file"
+	flagEndpoint      = "endpoint"
+	flagAccessKey     = "ak"
+	flagSecretKey     = "sk"
+	flagWorkspaceID   = "workspace-id"
+	flagRegion        = "region"
+	flagServerService = "server-service"
+	flagModelService  = "model-service"
+	flagUpService     = "up-service"
+	flagOutput        = "output"
+	flagVerbose       = "verbose"
 )
 
 // keys used inside viper / config file
 const (
-	keyEndpoint       = "endpoint"
-	keyAccessKey      = "ak"
-	keySecretKey      = "sk"
-	keyWorkspaceID    = "workspace_id"
-	keyRegion         = "region"
-	keyServerService  = "server_service"
-	keyGatewayService = "gateway_service"
-	keyModelService   = "model_service"
-	keyUpService      = "up_service"
+	keyEndpoint      = "endpoint"
+	keyAccessKey     = "ak"
+	keySecretKey     = "sk"
+	keyWorkspaceID   = "workspace_id"
+	keyRegion        = "region"
+	keyServerService = "server_service"
+	keyModelService  = "model_service"
+	keyUpService     = "up_service"
 )
 
 var (
 	configFlagToKey = map[string]string{
-		flagEndpoint:       keyEndpoint,
-		flagAccessKey:      keyAccessKey,
-		flagSecretKey:      keySecretKey,
-		flagWorkspaceID:    keyWorkspaceID,
-		flagRegion:         keyRegion,
-		flagServerService:  keyServerService,
-		flagGatewayService: keyGatewayService,
-		flagModelService:   keyModelService,
-		flagUpService:      keyUpService,
+		flagEndpoint:      keyEndpoint,
+		flagAccessKey:     keyAccessKey,
+		flagSecretKey:     keySecretKey,
+		flagWorkspaceID:   keyWorkspaceID,
+		flagRegion:        keyRegion,
+		flagServerService: keyServerService,
+		flagModelService:  keyModelService,
+		flagUpService:     keyUpService,
 	}
 	configKeyToEnv = map[string]string{
-		keyEndpoint:       "HIBOT_ENDPOINT",
-		keyAccessKey:      "HIBOT_AK",
-		keySecretKey:      "HIBOT_SK",
-		keyWorkspaceID:    "HIBOT_WORKSPACE_ID",
-		keyRegion:         "HIBOT_REGION",
-		keyServerService:  "HIBOT_SERVER_SERVICE",
-		keyGatewayService: "HIBOT_GATEWAY_SERVICE",
-		keyModelService:   "HIBOT_MODEL_SERVICE",
-		keyUpService:      "HIBOT_UP_SERVICE",
+		keyEndpoint:      "HIBOT_ENDPOINT",
+		keyAccessKey:     "HIBOT_AK",
+		keySecretKey:     "HIBOT_SK",
+		keyWorkspaceID:   "HIBOT_WORKSPACE_ID",
+		keyRegion:        "HIBOT_REGION",
+		keyServerService: "HIBOT_SERVER_SERVICE",
+		keyModelService:  "HIBOT_MODEL_SERVICE",
+		keyUpService:     "HIBOT_UP_SERVICE",
 	}
 )
 
@@ -110,7 +106,6 @@ Models, and Uploads.`,
 	flags.String(flagWorkspaceID, "", "Workspace ID (env HIBOT_WORKSPACE_ID)")
 	flags.String(flagRegion, "", "Region (env HIBOT_REGION)")
 	flags.String(flagServerService, "", "Override hibot-server TOP service name (env HIBOT_SERVER_SERVICE)")
-	flags.String(flagGatewayService, "", "Override hibot-gateway TOP service name (env HIBOT_GATEWAY_SERVICE)")
 	flags.String(flagModelService, "", "Override aigw-server TOP service name (env HIBOT_MODEL_SERVICE)")
 	flags.String(flagUpService, "", "Override up TOP service name (env HIBOT_UP_SERVICE)")
 	flags.StringP(flagOutput, "o", "table", "Output format: json|yaml|table")

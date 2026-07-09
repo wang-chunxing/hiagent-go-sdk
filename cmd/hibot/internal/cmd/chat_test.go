@@ -22,6 +22,7 @@ type fakeChatEvent = hibot.V1SessionChatEvent
 // of events instead of iterating an SDK stream. This keeps the assertion
 // surface stable while exercising the dispatch logic.
 func runStreamingChatEvents(events []fakeChatEvent, w *bytes.Buffer, verbose bool) error {
+	completedPrinted := false
 	for _, event := range events {
 		switch event.Type {
 		case hibot.V1SessionChatEventDelta:
@@ -29,10 +30,17 @@ func runStreamingChatEvents(events []fakeChatEvent, w *bytes.Buffer, verbose boo
 				_, _ = w.WriteString(event.Delta.Text)
 			}
 		case hibot.V1SessionChatEventCompleted:
-			id := ""
-			if event.Message != nil {
-				id = event.Message.ID
+			if event.Message == nil {
+				if verbose {
+					_, _ = w.WriteString("\n[event:" + event.Type + "]\n")
+				}
+				continue
 			}
+			if completedPrinted {
+				continue
+			}
+			completedPrinted = true
+			id := event.Message.ID
 			_, _ = w.WriteString("\n[completed message_id=" + id + "]\n")
 		case hibot.V1SessionChatEventFailed:
 			msg := event.Error.Message
@@ -69,6 +77,25 @@ func TestRunStreamingChat_DeltaCompleted(t *testing.T) {
 	}
 }
 
+func TestRunStreamingChat_DeduplicatesCompleted(t *testing.T) {
+	events := []fakeChatEvent{
+		{Type: hibot.V1SessionChatEventCompleted},
+		{Type: hibot.V1SessionChatEventCompleted, Message: &hibot.V1Message{ID: "m1"}},
+		{Type: hibot.V1SessionChatEventCompleted, Message: &hibot.V1Message{ID: "m2"}},
+	}
+	var buf bytes.Buffer
+	if err := runStreamingChatEvents(events, &buf, true); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	out := buf.String()
+	if strings.Count(out, "[completed message_id=") != 1 {
+		t.Fatalf("got duplicate completed markers: %q", out)
+	}
+	if !strings.Contains(out, "[completed message_id=m1]") {
+		t.Fatalf("got %q", out)
+	}
+}
+
 func TestRunStreamingChat_Failed(t *testing.T) {
 	events := []fakeChatEvent{
 		{Type: hibot.V1SessionChatEventFailed, Error: hibotv1.V1SessionChatError{Message: "boom"}},
@@ -100,5 +127,21 @@ func TestRunStreamingChat_VerboseOtherEvents(t *testing.T) {
 	}
 	if strings.Contains(buf2.String(), "[event:") {
 		t.Fatalf("verbose=false should suppress, got %q", buf2.String())
+	}
+}
+
+func TestChatCommandRejectsNonUUIDSessionID(t *testing.T) {
+	root := NewRootCmd()
+	root.SetArgs([]string{"chat", "test-session", "--agent-id=019f1760-f5b3-7883-b62d-88f5574da73b", "--input=hello"})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if ExitCodeFor(err) != 2 {
+		t.Fatalf("exit code = %d, want 2", ExitCodeFor(err))
+	}
+	if !strings.Contains(err.Error(), "session id must be a valid UUID") {
+		t.Fatalf("error = %v", err)
 	}
 }

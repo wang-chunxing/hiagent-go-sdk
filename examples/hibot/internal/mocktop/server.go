@@ -13,14 +13,15 @@ type Server struct {
 	t      testing.TB
 	server *httptest.Server
 
-	mu     sync.Mutex
-	seen   map[string]int
-	bodies map[string]map[string]any
+	mu       sync.Mutex
+	seen     map[string]int
+	bodies   map[string]map[string]any
+	services map[string]string
 }
 
 func New(t testing.TB) *Server {
 	t.Helper()
-	s := &Server{t: t, seen: map[string]int{}, bodies: map[string]map[string]any{}}
+	s := &Server{t: t, seen: map[string]int{}, bodies: map[string]map[string]any{}, services: map[string]string{}}
 	s.server = httptest.NewServer(http.HandlerFunc(s.handle))
 	return s
 }
@@ -33,6 +34,12 @@ func (s *Server) Body(action string) map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.bodies[action]
+}
+
+func (s *Server) Service(action string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.services[action]
 }
 
 func (s *Server) RequireActions(actions ...string) {
@@ -48,7 +55,7 @@ func (s *Server) RequireActions(actions ...string) {
 
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get("Action")
-	s.recordSeen(action)
+	s.recordSeen(action, r.Header.Get("X-Top-Service"))
 
 	var body map[string]any
 	if action != "UploadBlob" {
@@ -68,9 +75,16 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	case "CreateSession":
 		writeResult(w, `{"ID":"session-1"}`)
 	case "Chat":
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = fmt.Fprint(w, "event: delta\ndata: {\"request_id\":\"req-test\",\"delta\":{\"text\":\"ok\"}}\n\n")
-		_, _ = fmt.Fprint(w, "event: completed\ndata: {\"request_id\":\"req-test\",\"message\":{\"ID\":\"message-1\",\"Content\":\"ok\"}}\n\n")
+		if r.Header.Get("Accept") == "text/event-stream" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = fmt.Fprint(w, "event: delta\ndata: {\"request_id\":\"req-test\",\"delta\":{\"text\":\"ok\"}}\n\n")
+			_, _ = fmt.Fprint(w, "event: completed\ndata: {\"request_id\":\"req-test\",\"message\":{\"ID\":\"message-1\",\"Content\":\"ok\"}}\n\n")
+			return
+		}
+		if got := body["Stream"]; got != false {
+			s.t.Fatalf("Chat Stream = %v, want false for sync chat", got)
+		}
+		writeResult(w, `{"Message":"ok"}`)
 	case "UploadBlob":
 		if got := r.URL.Query().Get("Filename"); got == "" {
 			s.t.Fatalf("UploadBlob Filename is empty")
@@ -89,10 +103,11 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) recordSeen(action string) {
+func (s *Server) recordSeen(action, service string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.seen[action]++
+	s.services[action] = service
 }
 
 func (s *Server) recordBody(action string, body map[string]any) {

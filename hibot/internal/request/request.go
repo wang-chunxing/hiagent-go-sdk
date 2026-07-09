@@ -59,6 +59,25 @@ func (c *Client) DoAction(ctx context.Context, req Action, out any) error {
 	return decodeResponse(resp, out)
 }
 
+func (c *Client) DoLongAction(ctx context.Context, req Action, out any) error {
+	body, err := c.marshalActionBody(req.Body)
+	if err != nil {
+		return err
+	}
+	httpReq, err := c.newHTTPRequest(ctx, req, bytes.NewReader(body), "application/json", nil)
+	if err != nil {
+		return err
+	}
+	longClient := *c.cfg.HTTPClient
+	longClient.Timeout = 0
+	resp, err := longClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return decodeResponse(resp, out)
+}
+
 func (c *Client) DoRawAction(ctx context.Context, req Action, body io.Reader, contentType string, query map[string]string, out any) error {
 	httpReq, err := c.newHTTPRequest(ctx, req, body, contentType, query)
 	if err != nil {
@@ -97,7 +116,7 @@ func (c *Client) newHTTPRequest(ctx context.Context, req Action, body io.Reader,
 		return nil, fmt.Errorf("hibot: parse endpoint: %w", err)
 	}
 	// TOP 网关上 up 服务挂在子路径 /up，根路径不接受 up 的 Action。
-	// 其他服务（hibot-server / hibot-gateway / aigw）仍通过根路径分发。
+	// 其他服务（hibot-server / aigw 等）仍通过根路径分发。
 	if req.Service == "up" {
 		u.Path = strings.TrimRight(u.Path, "/") + "/up"
 	}

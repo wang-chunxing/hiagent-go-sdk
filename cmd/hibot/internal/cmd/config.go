@@ -118,7 +118,7 @@ func newConfigViewCmd(v *viper.Viper) *cobra.Command {
 			out := map[string]string{}
 			for _, key := range []string{
 				keyEndpoint, keyAccessKey, keySecretKey, keyWorkspaceID, keyRegion,
-				keyServerService, keyGatewayService, keyModelService, keyUpService,
+				keyServerService, keyModelService, keyUpService,
 			} {
 				val := v.GetString(key)
 				if (key == keySecretKey || key == keyAccessKey) && val != "" {
@@ -131,7 +131,7 @@ func newConfigViewCmd(v *viper.Viper) *cobra.Command {
 			rows := make([][]string, 0, len(out))
 			for _, k := range []string{
 				keyEndpoint, keyAccessKey, keySecretKey, keyWorkspaceID, keyRegion,
-				keyServerService, keyGatewayService, keyModelService, keyUpService,
+				keyServerService, keyModelService, keyUpService,
 			} {
 				rows = append(rows, []string{k, out[k]})
 			}
@@ -148,7 +148,7 @@ func newConfigSetCmd(v *viper.Viper) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, value := args[0], args[1]
 			if _, ok := configKeyToEnv[key]; !ok {
-				return newUserError("unknown config key %q (allowed: endpoint, ak, sk, workspace_id, region, server_service, gateway_service, model_service, up_service)", key)
+				return newUserError("unknown config key %q (allowed: endpoint, ak, sk, workspace_id, region, server_service, model_service, up_service)", key)
 			}
 			path, err := resolveConfigPath(cmd)
 			if err != nil {

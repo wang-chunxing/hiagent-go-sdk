@@ -18,10 +18,10 @@ Hibot 平台的官方 Go SDK，封装了 Hibot 私有化部署下的 Agent / Ses
 
 与 Claude SDK 的关键差异：
 
-- 路由分层：CRUD（Agent / Session / Skill / MCP / Resource）走 `hibot-server`；流式 Chat 走 `hibot-gateway`。SDK 内部根据 Action 自动路由，调用方无感知。
+- 路由分层：Agent / Session / Skill / MCP / Resource 以及 Chat 均走 `hibot-server`；模型相关 Action 走 `aigw`；文件上传走 `up`。SDK 内部根据 Action 自动路由，调用方无感知。
 - 资源版本化命名：使用 `client.V1.*`（稳定接口），不使用 `Beta` 前缀。
 - 鉴权：使用 TOP AK/SK + WorkspaceID（多租户隔离），`TenantID` 由服务端从 AK/SK 解析。
-- 流事件：SDK 将 Gateway 多种事件名（`message_delta` / `message.chunk` / `run_completed` 等）归一化为统一三态：`delta` / `completed` / `failed`。
+- 流事件：SDK 将服务端下发的多种事件名（`message_delta` / `message.chunk` / `run_completed` 等）归一化为统一三态：`delta` / `completed` / `failed`。
 
 ## 安装
 
@@ -62,7 +62,7 @@ if err != nil {
 | `WorkspaceID` | 是 | 工作空间 ID；所有资源在此空间隔离 |
 | `Region` | 否 | 默认 `cn-north-1` |
 | `HTTPClient` | 否 | 自定义 `*http.Client`；默认 30s 超时 |
-| `ServerService` / `GatewayService` / `ModelService` / `UpService` | 否 | 私有化部署下覆盖 TOP service 名；默认值分别为 `hibot-server` / `hibot-gateway` / `aigw-server` / `up`，模型相关 Action（`GetModel` / `ListModel` / `ListProvider` / `ListModelProvider` / `GetProvider` / `GetModelProviderCredentialSchema`，API Version `2023-08-01`）通过 `aigw-server` 路由 |
+| `ServerService` / `ModelService` / `UpService` | 否 | 私有化部署下覆盖 TOP service 名；默认值分别为 `hibot-server` / `aigw` / `up`。Agent / Session / Skill / MCP / Resource / Chat 均使用 `ServerService`；模型相关 Action（`GetModel` / `ListModel` / `ListProvider` / `ListModelProvider` / `GetProvider` / `GetModelProviderCredentialSchema`，API Version `2023-08-01`）通过 `aigw` 路由 |
 
 资源 client 全部挂在 `client.V1` 下：`Uploads` / `Environments` / `Models` / `Prompts` / `Resources` / `MCPs` / `Skills` / `Agents` / `Sessions`。
 
@@ -167,7 +167,7 @@ if err != nil {
 fmt.Printf("message_id=%s content=%s\n", message.ID, message.Content)
 ```
 
-`Chat` 内部消费 SSE 流到 `completed` 后返回最终 `V1Message`。
+`Chat` 会向 `hibot-server` 发送 `Stream=false`，解析同步 JSON 聚合响应后返回 `V1Message`。同步响应不保证包含消息 ID；需要完整事件、请求 ID 或断线恢复能力时，请使用 `ChatStreaming`。
 
 ## 流式聊天 (SSE)
 
@@ -320,7 +320,7 @@ if err != nil {
 - **Fail-fast**：资源不存在 / 必填缺失立即返回错误，绝不返回伪造空对象。
 - **IDL 对齐**：手写结构体严格对齐服务端 Thrift IDL（如 `AgentSkillInput.SkillVersionID` 落到 `ID`、`MCP.Endpoint` 落到 `URL`）；调用方无需关心字段映射。
 - **WorkspaceID 仅在 ActionRequest 顶层透传**，不会被隐式注入到 Payload 内部。
-- **私有化兼容**：SSE 事件名、Service 名、UP / Server / Gateway / Model service 全部可通过 `Config` 覆盖。
+- **私有化兼容**：SSE 事件名、Service 名、UP / Server / Model service 全部可通过 `Config` 覆盖。
 
 ## 相关文档
 

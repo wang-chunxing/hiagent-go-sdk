@@ -12,7 +12,7 @@ package cmd
 //  6. hibot agents create         → ListEnv (auto-resolve) + CreateAgent
 //  7. hibot sessions create       → CreateSession
 //  8. hibot chat <sid> --stream   → Chat (SSE delta+completed)
-//  9. hibot chat <sid>            → Chat (batch / 同一 SSE 端点同步消费)
+//  9. hibot chat <sid>            → Chat (Stream=false JSON sync response)
 //
 // 不依赖任何真实 Hibot 集群：使用 httptest.Server 完整模拟 TOP 路由、
 // Action 路由、SSE 行为，确保 CLI 的每一条命令都路由到正确的 TOP Action，
@@ -31,6 +31,8 @@ import (
 	"testing"
 )
 
+const e2eSessionID = "019f1760-f5b3-7883-b62d-88f5574da73b"
+
 // e2eMock 是 go/examples/internal/mocktop 在 CLI 测试包内的对等实现。
 // 因为 cli/ 与 go/ 是两个独立模块，CLI 不能直接 import go SDK 的
 // examples/internal/mocktop（internal 可见性 + 跨模块），所以在这里复刻一份。
@@ -38,14 +40,15 @@ type e2eMock struct {
 	t      testing.TB
 	server *httptest.Server
 
-	mu     sync.Mutex
-	seen   map[string]int
-	bodies map[string]map[string]any
+	mu       sync.Mutex
+	seen     map[string]int
+	bodies   map[string]map[string]any
+	services map[string]string
 }
 
 func newE2EMock(t testing.TB) *e2eMock {
 	t.Helper()
-	m := &e2eMock{t: t, seen: map[string]int{}, bodies: map[string]map[string]any{}}
+	m := &e2eMock{t: t, seen: map[string]int{}, bodies: map[string]map[string]any{}, services: map[string]string{}}
 	m.server = httptest.NewServer(http.HandlerFunc(m.handle))
 	t.Cleanup(m.server.Close)
 	return m
@@ -57,6 +60,12 @@ func (m *e2eMock) Body(action string) map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.bodies[action]
+}
+
+func (m *e2eMock) Service(action string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.services[action]
 }
 
 func (m *e2eMock) requireActions(actions ...string) {
@@ -75,11 +84,12 @@ func (m *e2eMock) handle(w http.ResponseWriter, r *http.Request) {
 
 	m.mu.Lock()
 	m.seen[action]++
+	m.services[action] = r.Header.Get("X-Top-Service")
 	m.mu.Unlock()
 
+	var body map[string]any
 	// UploadBlob 走 multipart，不解析 JSON；其余 action 都是 JSON。
 	if action != "UploadBlob" {
-		var body map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			m.t.Fatalf("decode %s body: %v", action, err)
 		}
@@ -109,13 +119,35 @@ func (m *e2eMock) handle(w http.ResponseWriter, r *http.Request) {
 	case "CreateAgent":
 		writeE2EResult(w, `{"ID":"agent-1","Name":"e2e-agent","ModelID":"model-1","EnvID":"env-1"}`)
 	case "CreateSession":
-		writeE2EResult(w, `{"ID":"session-1","AgentID":"agent-1","PeerKind":"system","PeerID":"agent-1"}`)
+		writeE2EResult(w, `{"ID":"`+e2eSessionID+`","AgentID":"agent-1","PeerKind":"system","PeerID":"agent-1"}`)
+	case "GetSession":
+		writeE2EResult(w, `{"ID":"`+e2eSessionID+`","AgentID":"agent-1","PeerKind":"system","PeerID":"agent-1"}`)
 	case "Chat":
-		// SDK 的 Sessions.Chat / Sessions.ChatStreaming 共用同一个 Action=Chat 入口。
-		// 流式分支由 CLI --stream 决定如何展示；mock 始终回 SSE。
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = fmt.Fprint(w, "event: delta\ndata: {\"request_id\":\"req-test\",\"delta\":{\"text\":\"ok\"}}\n\n")
-		_, _ = fmt.Fprint(w, "event: completed\ndata: {\"request_id\":\"req-test\",\"message\":{\"ID\":\"message-1\",\"Content\":\"ok\"}}\n\n")
+		if got := body["AgentID"]; got != "agent-1" {
+			m.t.Fatalf("Chat AgentID = %v, want agent-1", got)
+		}
+		if files, ok := body["Files"].([]any); ok {
+			if len(files) != 1 {
+				m.t.Fatalf("Chat Files len = %d, want 1", len(files))
+			}
+			first, ok := files[0].(map[string]any)
+			if !ok {
+				m.t.Fatalf("Chat Files[0] = %#v, want object", files[0])
+			}
+			if first["Name"] != "parking.png" || first["ContentType"] != "image/png" || first["BlobID"] != "blob-1" {
+				m.t.Fatalf("Chat file payload = %#v", first)
+			}
+		}
+		if r.Header.Get("Accept") == "text/event-stream" {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = fmt.Fprint(w, "event: delta\ndata: {\"request_id\":\"req-test\",\"delta\":{\"text\":\"ok\"}}\n\n")
+			_, _ = fmt.Fprint(w, "event: completed\ndata: {\"request_id\":\"req-test\",\"message\":{\"ID\":\"message-1\",\"Content\":\"ok\"}}\n\n")
+			return
+		}
+		if got := body["Stream"]; got != false {
+			m.t.Fatalf("Chat Stream = %v, want false for sync chat", got)
+		}
+		writeE2EResult(w, `{"Message":"ok"}`)
 	default:
 		m.t.Fatalf("unexpected action %q", action)
 	}
@@ -171,6 +203,10 @@ func TestCLIFullJourney_StreamingAndBatch(t *testing.T) {
 	resourceFile := filepath.Join(tmp, "runbook.md")
 	if err := os.WriteFile(resourceFile, []byte("# runbook\nstep 1\n"), 0o600); err != nil {
 		t.Fatalf("write resource: %v", err)
+	}
+	chatFile := filepath.Join(tmp, "parking.png")
+	if err := os.WriteFile(chatFile, []byte("\x89PNG\r\n\x1a\nimage-bytes"), 0o600); err != nil {
+		t.Fatalf("write chat file: %v", err)
 	}
 
 	// Step 1: models get → GetModel
@@ -240,23 +276,34 @@ func TestCLIFullJourney_StreamingAndBatch(t *testing.T) {
 	// Step 7: sessions create → CreateSession（不传 peer，走 SDK 默认 webchat 兜底）
 	out = runCLI(t, cfgPath, "--output=json", "sessions", "create",
 		"--agent-id=agent-1")
-	if !strings.Contains(out, "session-1") {
-		t.Fatalf("sessions create output missing session-1: %q", out)
+	if !strings.Contains(out, e2eSessionID) {
+		t.Fatalf("sessions create output missing session id: %q", out)
 	}
 
 	// Step 8: streaming chat —— 必须能写出 delta 文本 "ok" 与 completed marker。
-	out = runCLI(t, cfgPath, "chat", "session-1",
+	out = runCLI(t, cfgPath, "chat", e2eSessionID,
 		"--stream", "--input=streaming hello")
 	if !strings.Contains(out, "ok") || !strings.Contains(out, "[completed message_id=message-1]") {
 		t.Fatalf("streaming chat output: %q", out)
 	}
 
-	// Step 9: batch chat —— SDK 内部消费完整 SSE 流并返回 final message。
-	// 用 --output=json 方便断言 message-1 字段存在。
-	out = runCLI(t, cfgPath, "--output=json", "chat", "session-1",
-		"--input=batch hello")
-	if !strings.Contains(out, "message-1") {
-		t.Fatalf("batch chat output missing message-1: %q", out)
+	// Step 9: batch chat —— SDK 发送 Stream=false，读取 hibot-server 的 JSON 聚合响应。
+	// 同时覆盖 CLI --file：先 UploadBlob，再把 BlobID 透传到 Chat.Files。
+	out = runCLI(t, cfgPath, "--output=json", "chat", e2eSessionID,
+		"--agent-id=agent-1", "--file="+chatFile)
+	if !strings.Contains(out, "ok") {
+		t.Fatalf("batch chat output missing sync message: %q", out)
+	}
+	chatBody := mock.Body("Chat")
+	files, ok := chatBody["Files"].([]any)
+	if !ok || len(files) != 1 {
+		t.Fatalf("Chat Files missing after --file: %#v", chatBody["Files"])
+	}
+	if got := mock.Service("Chat"); got != "hibot-server" {
+		t.Fatalf("Chat X-Top-Service = %q, want hibot-server", got)
+	}
+	if got := chatBody["Stream"]; got != false {
+		t.Fatalf("Chat Stream = %v, want false", got)
 	}
 
 	// Step 10: 全链路 Action 命中校验（缺一不可）。
@@ -270,6 +317,7 @@ func TestCLIFullJourney_StreamingAndBatch(t *testing.T) {
 		"ListEnv",
 		"CreateAgent",
 		"CreateSession",
+		"GetSession",
 		"Chat",
 	)
 }

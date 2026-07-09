@@ -20,7 +20,8 @@
 // （Action / Service / Version、签名、字段映射、SSE 解析）都被覆盖。
 //
 // 当设置环境变量 HIBOT_E2E_TOP_HOST 时（同时配套 HIBOT_E2E_AK /
-// HIBOT_E2E_SK / HIBOT_E2E_WORKSPACE / HIBOT_E2E_TENANT_ID），测试会
+// HIBOT_E2E_SK / HIBOT_E2E_WORKSPACE，也兼容 HIBOT_ENDPOINT /
+// HIBOT_AK / HIBOT_SK / HIBOT_WORKSPACE_ID / HIBOT_AGENT_ID），测试会
 // 切换到"真实环境分支"，跳过 mocktop，使用真实集群完成最小闭环：
 // ListAgents → CreateSession → ChatStreaming → Chat。
 package e2e
@@ -31,6 +32,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,7 +63,7 @@ const (
 func TestFullJourney_StreamingAndBatch(t *testing.T) {
 	t.Parallel()
 
-	if host := trimEnv("HIBOT_E2E_TOP_HOST"); host != "" {
+	if host := firstEnv("HIBOT_E2E_TOP_HOST", "HIBOT_ENDPOINT"); host != "" {
 		runRealEnvJourney(t, host)
 		return
 	}
@@ -269,8 +271,8 @@ func TestFullJourney_StreamingAndBatch(t *testing.T) {
 
 	// ---------------------------------------------------------------
 	// Step 10 (batch / non-streaming): 在同一个 Session 上再发一次 Chat。
-	// SDK 的 Sessions.Chat 内部消费完整 SSE 流后只返回最终 Message，
-	// 对调用方来说等价于一次"批量同步"调用。
+	// SDK 的 Sessions.Chat 显式发送 Stream=false，使用 hibot-server 的
+	// ChatSyncResponse JSON 分支。
 	// ---------------------------------------------------------------
 	batchFinal, err := client.V1.Sessions.Chat(ctx, session.ID, hibot.V1SessionChatParams{
 		Input: "批量：再回答一次同样的问题。",
@@ -278,12 +280,15 @@ func TestFullJourney_StreamingAndBatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("batch chat: %v", err)
 	}
-	if batchFinal.ID == "" || batchFinal.Content == "" {
+	if batchFinal.Content == "" {
 		t.Fatalf("batch final message incomplete: %#v", batchFinal)
 	}
 
 	// 校验 Chat 的请求体（透传 SessionID + AgentID + Content）。
 	chatBody := server.Body("Chat")
+	if got := server.Service("Chat"); got != "hibot-server" {
+		t.Fatalf("Chat X-Top-Service = %q, want hibot-server", got)
+	}
 	if got := chatBody["SessionID"]; got != session.ID {
 		t.Fatalf("Chat SessionID = %v, want %v", got, session.ID)
 	}
@@ -292,6 +297,9 @@ func TestFullJourney_StreamingAndBatch(t *testing.T) {
 	}
 	if got, _ := chatBody["Content"].(string); !strings.Contains(got, "批量") {
 		t.Fatalf("Chat Content = %q, want contains '批量'", got)
+	}
+	if got := chatBody["Stream"]; got != false {
+		t.Fatalf("Chat Stream = %v, want false", got)
 	}
 
 	// ---------------------------------------------------------------
@@ -338,10 +346,15 @@ func uploadFile(ctx context.Context, t *testing.T, client *hibot.Client, path, c
 // 至少必须见到一个 completed 事件；delta 事件是可选的（短响应或非分块
 // runtime 可能直接走 started → completed 路径）。
 func runStreamingChat(ctx context.Context, t *testing.T, client *hibot.Client, sessionID, agentID, input string) (*hibot.V1Message, []string) {
+	return runStreamingChatWithFiles(ctx, t, client, sessionID, agentID, input, nil)
+}
+
+func runStreamingChatWithFiles(ctx context.Context, t *testing.T, client *hibot.Client, sessionID, agentID, input string, files []hibot.V1MessageFile) (*hibot.V1Message, []string) {
 	t.Helper()
 	stream := client.V1.Sessions.ChatStreaming(ctx, sessionID, hibot.V1SessionChatParams{
 		AgentID: agentID,
 		Input:   input,
+		Files:   files,
 	})
 	defer stream.Close()
 
@@ -359,7 +372,7 @@ func runStreamingChat(ctx context.Context, t *testing.T, client *hibot.Client, s
 		case hibot.V1SessionChatEventCompleted:
 			sawCompleted = true
 		case hibot.V1SessionChatEventFailed:
-			t.Fatalf("streaming chat failed: %s", event.Error.Message)
+			t.Fatalf("streaming chat failed: code=%s message=%s event=%#v", event.Error.Code, event.Error.Message, event)
 		}
 	}
 	if err := stream.Err(); err != nil {
@@ -400,6 +413,33 @@ func trimEnv(key string) string {
 	return v
 }
 
+func firstEnv(keys ...string) string {
+	for _, key := range keys {
+		if v := trimEnv(key); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func realEnvChatFiles(ctx context.Context, t *testing.T, client *hibot.Client) []hibot.V1MessageFile {
+	t.Helper()
+	path := firstEnv("HIBOT_E2E_CHAT_FILE", "HIBOT_CHAT_FILE")
+	if path == "" {
+		return nil
+	}
+	contentType := mime.TypeByExtension(filepath.Ext(path))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	blobID := uploadFile(ctx, t, client, path, contentType)
+	return []hibot.V1MessageFile{{
+		Name:        filepath.Base(path),
+		ContentType: contentType,
+		BlobID:      blobID,
+	}}
+}
+
 // runRealEnvJourney exercises the minimum-viable closed loop against a real
 // hibot cluster. We intentionally skip the resource-creation steps (model /
 // prompt / skill / resource / mcp / agent) because those require pre-staged
@@ -407,11 +447,11 @@ func trimEnv(key string) string {
 // agent via ListAgents and verify that CreateSession / ChatStreaming / Chat
 // all succeed end-to-end.
 func runRealEnvJourney(t *testing.T, host string) {
-	ak := trimEnv("HIBOT_E2E_AK")
-	sk := trimEnv("HIBOT_E2E_SK")
-	workspace := trimEnv("HIBOT_E2E_WORKSPACE")
+	ak := firstEnv("HIBOT_E2E_AK", "HIBOT_AK")
+	sk := firstEnv("HIBOT_E2E_SK", "HIBOT_SK")
+	workspace := firstEnv("HIBOT_E2E_WORKSPACE", "HIBOT_WORKSPACE_ID")
 	if ak == "" || sk == "" || workspace == "" {
-		t.Fatalf("real-env journey requires HIBOT_E2E_AK / HIBOT_E2E_SK / HIBOT_E2E_WORKSPACE")
+		t.Fatalf("real-env journey requires HIBOT_E2E_AK/HIBOT_AK, HIBOT_E2E_SK/HIBOT_SK, and HIBOT_E2E_WORKSPACE/HIBOT_WORKSPACE_ID")
 	}
 
 	t.Logf("real-env journey: host=%s workspace=%s", host, workspace)
@@ -426,23 +466,29 @@ func runRealEnvJourney(t *testing.T, host string) {
 		t.Fatalf("new real-env client: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Step 1: discover an existing agent — real cluster fixtures own creation.
-	agents, err := client.V1.Agents.List(ctx, hibot.V1AgentListParams{})
-	if err != nil {
-		t.Fatalf("list agents: %v", err)
+	// Step 1: use the explicit fixture agent when provided; otherwise discover
+	// an existing agent. Real cluster fixtures own agent creation.
+	agentID := firstEnv("HIBOT_E2E_AGENT_ID", "HIBOT_AGENT_ID")
+	if agentID == "" {
+		agents, err := client.V1.Agents.List(ctx, hibot.V1AgentListParams{})
+		if err != nil {
+			t.Fatalf("list agents: %v", err)
+		}
+		if len(agents) == 0 {
+			t.Fatalf("real-env workspace %q has no agents; please pre-create one before running this test", workspace)
+		}
+		agentID = agents[0].ID
+		t.Logf("using discovered agent: id=%s name=%s", agents[0].ID, agents[0].Name)
+	} else {
+		t.Logf("using configured agent: id=%s", agentID)
 	}
-	if len(agents) == 0 {
-		t.Fatalf("real-env workspace %q has no agents; please pre-create one before running this test", workspace)
-	}
-	agent := agents[0]
-	t.Logf("using agent: id=%s name=%s", agent.ID, agent.Name)
 
 	// Step 2: create a session with no Peer — webchat default path.
 	session, err := client.V1.Sessions.New(ctx, hibot.V1SessionNewParams{
-		AgentID: agent.ID,
+		AgentID: agentID,
 	})
 	if err != nil {
 		t.Fatalf("create session: %v", err)
@@ -452,9 +498,16 @@ func runRealEnvJourney(t *testing.T, host string) {
 	}
 	t.Logf("created session: %s", session.ID)
 
+	chatFiles := realEnvChatFiles(ctx, t, client)
+	streamingInput := "流式真实环境冒烟：请用一句话介绍你自己。"
+	batchInput := "批量真实环境冒烟：再回答一次同样的问题。"
+	if len(chatFiles) > 0 {
+		streamingInput = "请识别这张停车场图片中的当前车位号和周边车位号，并按你的系统要求返回 JSON。request_id=hibot-go-sdk-e2e-stream"
+		batchInput = "请再次识别同一张图片中的当前车位号和周边车位号，并按你的系统要求返回 JSON。request_id=hibot-go-sdk-e2e-batch"
+	}
+
 	// Step 3: streaming chat — must observe delta + completed.
-	streamingFinal, _ := runStreamingChat(ctx, t, client, session.ID, agent.ID,
-		"流式真实环境冒烟：请用一句话介绍你自己。")
+	streamingFinal, _ := runStreamingChatWithFiles(ctx, t, client, session.ID, agentID, streamingInput, chatFiles)
 	if streamingFinal.ID == "" || streamingFinal.Content == "" {
 		t.Fatalf("real-env streaming final message incomplete: %#v", streamingFinal)
 	}
@@ -462,13 +515,14 @@ func runRealEnvJourney(t *testing.T, host string) {
 
 	// Step 4: batch (non-streaming) chat reuses the same session.
 	batchFinal, err := client.V1.Sessions.Chat(ctx, session.ID, hibot.V1SessionChatParams{
-		AgentID: agent.ID,
-		Input:   "批量真实环境冒烟：再回答一次同样的问题。",
+		AgentID: agentID,
+		Input:   batchInput,
+		Files:   chatFiles,
 	})
 	if err != nil {
 		t.Fatalf("batch chat: %v", err)
 	}
-	if batchFinal.ID == "" || batchFinal.Content == "" {
+	if batchFinal.Content == "" {
 		t.Fatalf("real-env batch final message incomplete: %#v", batchFinal)
 	}
 	t.Logf("batch final: id=%s content=%q", batchFinal.ID, batchFinal.Content)

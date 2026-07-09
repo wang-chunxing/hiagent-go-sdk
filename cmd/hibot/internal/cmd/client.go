@@ -41,15 +41,14 @@ func buildClient(v *viper.Viper) (*hibot.Client, error) {
 	}
 
 	cfg := hibot.Config{
-		Endpoint:       endpoint,
-		AccessKey:      ak,
-		SecretKey:      sk,
-		WorkspaceID:    wsID,
-		Region:         v.GetString(keyRegion),
-		ServerService:  v.GetString(keyServerService),
-		GatewayService: v.GetString(keyGatewayService),
-		ModelService:   v.GetString(keyModelService),
-		UpService:      v.GetString(keyUpService),
+		Endpoint:      endpoint,
+		AccessKey:     ak,
+		SecretKey:     sk,
+		WorkspaceID:   wsID,
+		Region:        v.GetString(keyRegion),
+		ServerService: v.GetString(keyServerService),
+		ModelService:  v.GetString(keyModelService),
+		UpService:     v.GetString(keyUpService),
 	}
 	client, err := hibot.NewClient(cfg)
 	if err != nil {

@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	// 兼容 gateway legacy delivery 路径 (Deliver / DeliverFailed) 发出的事件名；
+	// 兼容 legacy delivery 路径 (Deliver / DeliverFailed) 发出的事件名；
 	// 新 V4 事件路径 (HandleEvent) 已统一为 delta / completed / failed。
 	v1SessionChatEventMessageChunkCompat     = "message" + ".chunk"
 	v1SessionChatEventMessageCompletedCompat = "message" + ".completed"
 	v1SessionChatEventMessageFailedCompat    = "message" + ".failed"
-	// 私有化 Hermes runtime 经由 gateway 落地后发出的下划线分隔事件名
+	// 私有化 Hermes runtime 发出的下划线分隔事件名
 	// (message_started / message_delta / message_completed / message_failed
 	// / run_completed)。SDK 也将它们归一化到统一三态：delta / completed / failed。
 	v1SessionChatEventMessageDeltaUnderscore     = "message_delta"
@@ -31,18 +31,28 @@ const (
 )
 
 func (s *SessionsService) Chat(ctx context.Context, sessionID string, params V1SessionChatParams) (*V1Message, error) {
-	stream := s.chatStream(ctx, sessionID, params, true)
-	defer stream.Close()
-	for stream.Next() {
-		event := stream.Current()
-		if event.Type == V1SessionChatEventFailed {
-			return nil, fmt.Errorf("hibot: chat failed: %s", event.Error.Message)
-		}
-	}
-	if err := stream.Err(); err != nil {
+	body, err := s.chatBody(ctx, sessionID, params)
+	if err != nil {
 		return nil, err
 	}
-	return stream.FinalMessage()
+	body["Approve"] = "all"
+	body["Stream"] = false
+
+	var out v1SessionChatSyncResponse
+	if err := s.client.requester.DoLongAction(ctx, request.Action{
+		Service: s.client.services.Server,
+		Version: version.Server,
+		Action:  "Chat",
+		Body:    body,
+	}, &out); err != nil {
+		return nil, err
+	}
+	return &V1Message{
+		SessionID: sessionID,
+		Role:      "assistant",
+		Content:   out.Message,
+		Files:     out.Files,
+	}, nil
 }
 
 func (s *SessionsService) ChatStreaming(ctx context.Context, sessionID string, params V1SessionChatParams) *V1SessionChatStream {
@@ -54,29 +64,18 @@ func (s *SessionsService) ChatStreaming(ctx context.Context, sessionID string, p
 // 在收到批回复前不需要显式审批；流式订阅方仍可通过 SSE approval_request
 // 事件参与人审。
 func (s *SessionsService) chatStream(ctx context.Context, sessionID string, params V1SessionChatParams, autoApproveAll bool) *V1SessionChatStream {
-	agentID := params.AgentID
-	if agentID == "" {
-		agentID = s.agentIDForSession(sessionID)
-	}
-	body := map[string]any{
-		"WorkspaceID": params.WorkspaceID,
-		"SessionID":   sessionID,
-		"AgentID":     agentID,
-		"Content":     params.Input,
-	}
-	if len(params.Files) > 0 {
-		body["Files"] = params.Files
-	}
-	if params.ClientMessageID != "" {
-		body["ClientMessageID"] = params.ClientMessageID
+	stream := &V1SessionChatStream{}
+	body, err := s.chatBody(ctx, sessionID, params)
+	if err != nil {
+		stream.err = err
+		return stream
 	}
 	if autoApproveAll {
 		body["Approve"] = "all"
 	}
-	stream := &V1SessionChatStream{}
 	resp, err := s.client.requester.DoStream(ctx, request.Action{
-		Service: s.client.services.Gateway,
-		Version: version.Chat,
+		Service: s.client.services.Server,
+		Version: version.Server,
 		Action:  "Chat",
 		Body:    body,
 	})
@@ -97,6 +96,55 @@ func (s *SessionsService) chatStream(ctx context.Context, sessionID string, para
 	stream.resp = resp
 	stream.decoder = ssestream.NewDecoder(resp.Body)
 	return stream
+}
+
+func (s *SessionsService) chatBody(ctx context.Context, sessionID string, params V1SessionChatParams) (map[string]any, error) {
+	agentID, err := s.resolveAgentID(ctx, sessionID, params)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]any{
+		"WorkspaceID": params.WorkspaceID,
+		"SessionID":   sessionID,
+		"AgentID":     agentID,
+		"Content":     params.Input,
+	}
+	if len(params.Files) > 0 {
+		body["Files"] = params.Files
+	}
+	if params.ClientMessageID != "" {
+		body["ClientMessageID"] = params.ClientMessageID
+	}
+	return body, nil
+}
+
+func (s *SessionsService) resolveAgentID(ctx context.Context, sessionID string, params V1SessionChatParams) (string, error) {
+	if params.AgentID != "" {
+		return params.AgentID, nil
+	}
+	if agentID := s.agentIDForSession(sessionID); agentID != "" {
+		return agentID, nil
+	}
+	session, err := s.Get(ctx, V1SessionGetParams{
+		WorkspaceID: params.WorkspaceID,
+		SessionID:   sessionID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("hibot: resolve agent id for session %q: %w", sessionID, err)
+	}
+	if session.AgentID == "" {
+		return "", fmt.Errorf("hibot: session %q response missing AgentID; pass V1SessionChatParams.AgentID explicitly", sessionID)
+	}
+	s.mu.Lock()
+	s.sessionAgents[sessionID] = session.AgentID
+	s.mu.Unlock()
+	return session.AgentID, nil
+}
+
+type v1SessionChatSyncResponse struct {
+	Message    string          `json:"Message"`
+	TokenCount int64           `json:"TokenCount,omitempty"`
+	Files      []V1MessageFile `json:"Files,omitempty"`
 }
 
 type V1SessionChatStream struct {
@@ -246,10 +294,15 @@ func decodeChatEvent(eventName, data string) (V1SessionChatEvent, error) {
 			_ = json.Unmarshal(rawErr, &event.Error.Message)
 		}
 	}
-	if rawCode, ok := firstRaw(payload, "code", "Code"); ok && event.Error.Code == "" {
-		_ = json.Unmarshal(rawCode, &event.Error.Code)
+	if rawCode, ok := firstRaw(payload, "code", "Code", "biz_code", "BizCode"); ok && event.Error.Code == "" {
+		if err := json.Unmarshal(rawCode, &event.Error.Code); err != nil {
+			var codeNumber json.Number
+			if err := json.Unmarshal(rawCode, &codeNumber); err == nil {
+				event.Error.Code = codeNumber.String()
+			}
+		}
 	}
-	if rawMessage, ok := firstRaw(payload, "message", "Message"); ok && event.Error.Message == "" {
+	if rawMessage, ok := firstRaw(payload, "message", "Message", "reason", "Reason", "detail", "Detail"); ok && event.Error.Message == "" {
 		_ = json.Unmarshal(rawMessage, &event.Error.Message)
 	}
 	if rawMessage, ok := firstRaw(payload, "message", "Message"); ok {

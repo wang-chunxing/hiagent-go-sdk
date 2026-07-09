@@ -18,11 +18,16 @@ func TestChatNonStreamingInjectsApproveAll(t *testing.T) {
 		if got := r.URL.Query().Get("Action"); got != "Chat" {
 			t.Fatalf("Action = %q, want Chat", got)
 		}
+		if got := r.URL.Query().Get("Version"); got != defaultServerVersion {
+			t.Fatalf("Version = %q, want %s", got, defaultServerVersion)
+		}
+		if got := r.Header.Get("X-Top-Service"); got != defaultServerService {
+			t.Fatalf("X-Top-Service = %q, want %s", got, defaultServerService)
+		}
 		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
 			t.Fatalf("decode body: %v", err)
 		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = fmt.Fprint(w, "event: completed\ndata: {\"message\":{\"ID\":\"msg-1\",\"Content\":\"ok\"}}\n\n")
+		writeChatSyncResult(w, "ok", nil)
 	}))
 	defer server.Close()
 
@@ -34,11 +39,14 @@ func TestChatNonStreamingInjectsApproveAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("chat: %v", err)
 	}
-	if msg.ID != "msg-1" {
-		t.Fatalf("msg.ID = %q, want msg-1", msg.ID)
+	if msg.Content != "ok" {
+		t.Fatalf("msg.Content = %q, want ok", msg.Content)
 	}
 	if got := captured["Approve"]; got != "all" {
 		t.Fatalf("Approve = %v, want all", got)
+	}
+	if got := captured["Stream"]; got != false {
+		t.Fatalf("Stream = %v, want false", got)
 	}
 }
 
@@ -78,13 +86,12 @@ func TestChatSupportsFilesAndEmptyContent(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
 			t.Fatalf("decode body: %v", err)
 		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = fmt.Fprint(w, "event: completed\ndata: {\"message\":{\"ID\":\"msg-1\"}}\n\n")
+		writeChatSyncResult(w, "ok", []V1MessageFile{{Name: "out.txt", ContentType: "text/plain"}})
 	}))
 	defer server.Close()
 
 	client := newTestClient(t, server.URL)
-	_, err := client.V1.Sessions.Chat(context.Background(), "session-1", V1SessionChatParams{
+	msg, err := client.V1.Sessions.Chat(context.Background(), "session-1", V1SessionChatParams{
 		AgentID: "agent-1",
 		Files: []V1MessageFile{
 			{Name: "report.pdf", ContentType: "application/pdf", BlobID: "blob-123"},
@@ -104,4 +111,17 @@ func TestChatSupportsFilesAndEmptyContent(t *testing.T) {
 	if first["Name"] != "report.pdf" || first["ContentType"] != "application/pdf" || first["BlobID"] != "blob-123" {
 		t.Fatalf("file payload = %#v", first)
 	}
+	if msg.Content != "ok" || len(msg.Files) != 1 || msg.Files[0].Name != "out.txt" {
+		t.Fatalf("sync message = %#v", msg)
+	}
+}
+
+func writeChatSyncResult(w http.ResponseWriter, message string, files []V1MessageFile) {
+	w.Header().Set("Content-Type", "application/json")
+	result := struct {
+		Message string          `json:"Message"`
+		Files   []V1MessageFile `json:"Files,omitempty"`
+	}{Message: message, Files: files}
+	b, _ := json.Marshal(result)
+	_, _ = fmt.Fprintf(w, `{"ResponseMetadata":{"RequestId":"req-test"},"Result":%s}`, b)
 }
