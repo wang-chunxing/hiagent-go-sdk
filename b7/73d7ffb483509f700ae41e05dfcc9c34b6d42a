@@ -1,0 +1,37 @@
+go.mod
+  s_cdca9dc422d9f0::t_d56f74ad235caa 3
+  s_9e5845bf4ee37a::t_ad4df8edc44388 7-11,17,19-21,23-32,34-35,37-38,40-41
+cmd/hibot/README.md
+  s_cdca9dc422d9f0::t_e774c3dbfef7be 27-28
+  s_cdca9dc422d9f0::t_077af385096295 56
+go.sum
+  s_cdca9dc422d9f0::t_3ad51cd7aec697 2-33,35-58,60-68,75-78,80-88,92-99,102-110,112-115,117-151,153-156,158-163,165,167-169,176,178-184,189,191-211,213-283,286-289,291-293,296-360,362,364-374,376-425,427,431-433,435-436,440,443-445,448-480,483-484,486-500,502-516,519,521-538,541-544,547-584,586-590,593-594,596-604,606-610,612-666,669-674,676-693,695,698-702,704-744,746-766,769-772,774-778,780-797,799-804,806-807,809-810,812-821,830,832-836,838,840-851,853-855,857-858,860,864-865,867-874
+scripts/release/prepare-cli-module.sh
+  s_cdca9dc422d9f0::t_d6994817e6a780 3,5-7,10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b773d7ffb483509f700ae41e05dfcc9c34b6d42a",
+  "prompts": {},
+  "sessions": {
+    "s_9e5845bf4ee37a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4592-4cce-7ee1-be34-8784e9212b06",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    },
+    "s_cdca9dc422d9f0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f458b-914b-7b80-92b5-97fc7c6a91d5",
+        "model": "unknown"
+      },
+      "human_author": "wangchunxing <wangchunxing@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
